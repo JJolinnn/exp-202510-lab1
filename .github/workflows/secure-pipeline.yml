@@ -68,8 +68,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_SUMMARY: true
-
-  # --- 修改重點在這邊 ---
   sonarcloud-scan:
     runs-on: ubuntu-latest
     name: SonarCloud 程式碼品質掃描
@@ -77,14 +75,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      # 這就是新加入的 Java 17 設定，必須放在這裡
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
       - uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -93,8 +83,6 @@ jobs:
           args: >
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
             -Dsonar.organization=${{ github.repository_owner }}
-  # --------------------
-
   security-summary:
     needs: [sast-scan, sca-scan, container-scan, iac-scan, secret-scan, sonarcloud-scan]
     runs-on: ubuntu-latest
@@ -105,3 +93,41 @@ jobs:
   build-web:
     needs: [security-summary]
     runs-on: ubuntu-latest
+    name: 建置網站
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+  deploy-pages:
+    needs: [build-web]
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    name: 部署到 GitHub Pages
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+  build-docker:
+    needs: [security-summary]
+    runs-on: ubuntu-latest
+    name: 建置並推送 Docker Image
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
