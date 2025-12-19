@@ -16,3 +16,4 @@ services:
     labels:
       - "com.example.description=井字遊戲 - 靜態網頁應用"
       - "com.example.version=latest"
+      
