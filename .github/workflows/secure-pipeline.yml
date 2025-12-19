@@ -33,7 +33,7 @@ jobs:
             p/secrets
             p/owasp-top-ten
           publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
-          publishDeployment: ${{ github.ref == 'refs/heads/main' && '1' || '0' }}
+          # publishDeployment: ${{ github.ref == 'refs/heads/main' && '1' || '0' }}
 
       - name: 執行 Semgrep 掃描（生成 SARIF）
         if: always()
