@@ -9,7 +9,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 # [選用] 在新版 Alpine 中，這行可能不需要了，但留著當作雙重保險也可以
 # 如果掃描結果還有 libxml2 漏洞再留著，否則可以試著移除這行讓映像檔更乾淨
-RUN apk update && apk add --no-cache libxml2 upgrade
+RUN apk update && apk add --no-cache libxml2 wget
 
 # 移除預設的 Nginx 網頁
 RUN rm -rf /usr/share/nginx/html/*
