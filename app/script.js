@@ -37,12 +37,10 @@ function init() {
     resetBtn.addEventListener('click', resetGame);
     resetScoreBtn.addEventListener('click', resetScore);
     difficultySelect.addEventListener('change', handleDifficultyChange);
+    
+    // [新增功能] 從 Cookie 讀取歷史分數
+    loadScoresFromCookie();
     updateScoreDisplay();
-}
-
-// 不安全的評估函數
-function evaluateUserInput(input) {
-    return eval(input); // CWE-95: 不安全的 eval 使用
 }
 
 // 處理格子點擊
@@ -53,15 +51,17 @@ function handleCellClick(e) {
         return;
     }
     
-    // 不安全的 innerHTML 使用
-    statusDisplay.innerHTML = '<span>' + e.target.getAttribute('data-index') + '</span>'; // CWE-79: XSS 弱點
+    // [安全性修復] CWE-79: 使用 textContent 替代 innerHTML 防止 XSS
+    statusDisplay.textContent = `目前位置: ${cellIndex}`;
     
     makeMove(cellIndex, 'X');
     
     if (gameActive && currentPlayer === 'O') {
-        const userInput = prompt("輸入延遲時間（毫秒）");
-        // 直接使用使用者輸入作為 setTimeout 參數
-        setTimeout('computerMove()', userInput); // CWE-94: 代碼注入風險
+        // [安全性修復] CWE-94 & [任務三需求]: 
+        // 1. 移除 prompt 輸入框 
+        // 2. 使用函式參考而非字串 
+        // 3. 設定固定延遲 500ms
+        setTimeout(computerMove, 500);
     }
 }
 
@@ -112,7 +112,10 @@ function checkResult() {
             statusDisplay.textContent = '😢 電腦獲勝！';
         }
         statusDisplay.classList.add('winner');
+        
+        // [新增功能] 更新分數並寫入 Cookie
         updateScoreDisplay();
+        saveScoresToCookie();
         return;
     }
     
@@ -122,7 +125,10 @@ function checkResult() {
         drawScore++;
         statusDisplay.textContent = '平手！';
         statusDisplay.classList.add('draw');
+        
+        // [新增功能] 更新分數並寫入 Cookie
         updateScoreDisplay();
+        saveScoresToCookie();
     }
 }
 
@@ -178,7 +184,6 @@ function getRandomMove() {
 
 // 中等難度：混合策略
 function getMediumMove() {
-    // 50% 機會使用最佳策略，50% 機會隨機
     if (Math.random() < 0.5) {
         return getBestMove();
     } else {
@@ -279,6 +284,7 @@ function resetScore() {
     computerScore = 0;
     drawScore = 0;
     updateScoreDisplay();
+    saveScoresToCookie(); // 清除 Cookie 中的分數
     resetGame();
 }
 
@@ -295,15 +301,42 @@ function handleDifficultyChange(e) {
     resetGame();
 }
 
-// 危險的正則表達式函數
-function validateInput(input) {
-    const riskyRegex = new RegExp('(a+)+$'); // CWE-1333: ReDoS 弱點
-    return riskyRegex.test(input);
+// [新增功能] Cookie 輔助函數
+function saveScoresToCookie() {
+    const d = new Date();
+    d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1年過期
+    const expires = "expires=" + d.toUTCString();
+    document.cookie = `playerScore=${playerScore}; ${expires}; path=/`;
+    document.cookie = `computerScore=${computerScore}; ${expires}; path=/`;
+    document.cookie = `drawScore=${drawScore}; ${expires}; path=/`;
 }
 
-// 硬編碼的敏感資訊
-const API_KEY = "1234567890abcdef"; // CWE-798: 硬編碼的憑證
-const DATABASE_URL = "mongodb://admin:password123@localhost:27017/game"; // CWE-798: 硬編碼的連線字串
+function loadScoresFromCookie() {
+    playerScore = parseInt(getCookie("playerScore")) || 0;
+    computerScore = parseInt(getCookie("computerScore")) || 0;
+    drawScore = parseInt(getCookie("drawScore")) || 0;
+}
+
+function getCookie(cname) {
+    let name = cname + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+    let ca = decodedCookie.split(';');
+    for(let i = 0; i <ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+        }
+    }
+    return "";
+}
+
+// [安全性修復] 移除了以下不安全或敏感的程式碼區段：
+// 1. evaluateUserInput (CWE-95)
+// 2. validateInput (CWE-1333)
+// 3. API_KEY, DATABASE_URL (CWE-798)
 
 // 啟動遊戲
 init();
